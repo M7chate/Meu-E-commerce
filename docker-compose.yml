@@ -1,0 +1,49 @@
+services:
+  # 1. O motor PHP-FPM (Processador isolado do Laravel)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: e_commerce_fpm_app
+    volumes:
+      - .:/var/www/html
+    working_dir: /var/www/html
+   
+    command: >
+      bash -c "chmod -R 777 storage bootstrap/cache &&
+               php-fpm"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # 2. O Servidor Web Nginx (O motor de produção que atende o navegador)
+  web:
+    image: nginx:alpine
+    container_name: e_commerce_nginx_web
+    ports:
+      - "8000:80" # Tu vais aceder em http://localhost:8000
+    volumes:
+      - .:/var/www/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+
+  # 3. O Banco de Dados MySQL Estável
+  db:
+    image: mysql:8.4.3
+    container_name: e_commerce_fpm_db
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: "e_commerce_db"
+    volumes:
+      - e_commerce_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  e_commerce_db_data:
